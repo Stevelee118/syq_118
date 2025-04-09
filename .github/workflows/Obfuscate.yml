@@ -5,6 +5,7 @@ on:
     branches:
       - main
   schedule:
+    # Runs everyday at 1:00 AM UTC
     - cron: "0 1 * * *"
 
 permissions:
@@ -23,37 +24,32 @@ jobs:
         with:
           node-version: "latest"
 
-      - name: Cache Node.js dependencies
-        uses: actions/cache@v3
-        with:
-          path: ~/.npm
-          key: ${{ runner.os }}-npm-${{ hashFiles('**/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-npm-
-
       - name: Install dependencies
         run: |
           npm install -g javascript-obfuscator terser
-          sudo apt-get install aria2 -y
 
-      - name: Download BPB workjs
+      - name: Clone BPB workjs
         run: |
-          aria2c -x 8 -s 8 -o origin.js https://raw.githubusercontent.com/bia-pain-bache/BPB-Worker-Panel/refs/heads/main/build/unobfuscated-worker.js
+          wget -O origin.js https://raw.githubusercontent.com/bia-pain-bache/BPB-Worker-Panel/refs/heads/main/build/unobfuscated-worker.js
 
       - name: Minify the script
         run: |
-          terser origin.js -o minified.js --compress pure_funcs=["console.log"],drop_console --mangle
+          terser origin.js -o minified.js --compress --mangle
 
       - name: Obfuscate BPB worker js
         run: |
           javascript-obfuscator minified.js --output _worker.js \
           --compact true \
           --control-flow-flattening true \
-          --control-flow-flattening-threshold 0.3 \
+          --control-flow-flattening-threshold 0.5 \
+          --dead-code-injection false \
           --identifier-names-generator hexadecimal \
+          --rename-globals true \
           --string-array true \
           --string-array-encoding 'base64' \
-          --string-array-threshold 0.5
+          --string-array-threshold 0.75 \
+          --transform-object-keys true \
+          --unicode-escape-sequence false
 
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
