@@ -5,7 +5,7 @@ on:
     branches:
       - main
   schedule:
-    - cron: "0 1 * * *"
+    - cron: "0 1 * * *" # Runs daily at 1 AM UTC
 
 permissions:
   contents: write
@@ -15,29 +15,37 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Check out the code
+      - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1  # 只拉取最新提交
+          fetch-depth: 1
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"  # 指定具体版本
-          cache: 'npm'  # 缓存 npm 依赖
+          node-version: "20"
+          cache: "npm"
 
-      - name: Install dependencies
-        run: npm install javascript-obfuscator terser --no-save  # 本地安装
+      - name: Install dependencies with lock file
+        run: npm ci # Use this if you commit a package-lock.json
+        # Alternatively, generate lock file and install:
+        # run: npm install javascript-obfuscator terser && npm install --package-lock-only
 
       - name: Download BPB worker.js
         run: |
-          curl -sSL --fail --retry 3 -o origin.js \
-          https://raw.githubusercontent.com/bia-pain-bache/BPB-Worker-Panel/refs/heads/main/build/unobfuscated-worker.js
+          curl -sSL --fail --retry 3 \
+            -o origin.js \
+            https://raw.githubusercontent.com/bia-pain-bache/BPB-Worker-Panel/refs/heads/main/build/unobfuscated-worker.js
 
       - name: Minify and Obfuscate BPB worker.js
         run: |
-          npx terser origin.js --compress --mangle --toplevel | \
-          npx javascript-obfuscator --output _worker.js \
+          npx terser origin.js \
+            --compress \
+            --mangle \
+            --toplevel \
+            -o minified.js && \
+          npx javascript-obfuscator minified.js \
+            --output _worker.js \
             --compact true \
             --control-flow-flattening true \
             --control-flow-flattening-threshold 0.3 \
@@ -45,7 +53,7 @@ jobs:
             --identifier-names-generator hexadecimal \
             --rename-globals true \
             --string-array true \
-            --string-array-encoding 'rc4' \
+            --string-array-encoding rc4 \
             --string-array-threshold 0.75 \
             --unicode-escape-sequence false
 
@@ -53,6 +61,6 @@ jobs:
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           branch: main
-          commit_message: 'chore: update obfuscated BPB worker.js'
-          commit_author: 'github-actions[bot] <github-actions[bot]@users.noreply.github.com>'
-          file_pattern: '_worker.js'  # 只在文件更改时提交
+          commit_message: "chore: update obfuscated BPB worker.js"
+          commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
+          file_pattern: "_worker.js"
