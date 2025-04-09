@@ -5,7 +5,8 @@ on:
     branches:
       - main
   schedule:
-    - cron: "0 1 * * *" # Runs daily at 1 AM UTC
+    # Runs everyday at 1:00 AM UTC
+    - cron: "0 1 * * *"
 
 permissions:
   contents: write
@@ -15,52 +16,45 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout code
+      - name: Check out the code
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
 
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: "latest"
 
-      - name: Install dependencies with lock file
-        run: npm ci # Use this if you commit a package-lock.json
-        # Alternatively, generate lock file and install:
-        # run: npm install javascript-obfuscator terser && npm install --package-lock-only
-
-      - name: Download BPB worker.js
+      - name: Install dependencies
         run: |
-          curl -sSL --fail --retry 3 \
-            -o origin.js \
-            https://raw.githubusercontent.com/bia-pain-bache/BPB-Worker-Panel/refs/heads/main/build/unobfuscated-worker.js
+          npm install -g javascript-obfuscator terser
 
-      - name: Minify and Obfuscate BPB worker.js
+      - name: Clone BPB workjs
         run: |
-          npx terser origin.js \
-            --compress \
-            --mangle \
-            --toplevel \
-            -o minified.js && \
-          npx javascript-obfuscator minified.js \
-            --output _worker.js \
-            --compact true \
-            --control-flow-flattening true \
-            --control-flow-flattening-threshold 0.3 \
-            --dead-code-injection false \
-            --identifier-names-generator hexadecimal \
-            --rename-globals true \
-            --string-array true \
-            --string-array-encoding rc4 \
-            --string-array-threshold 0.75 \
-            --unicode-escape-sequence false
+          wget -O origin.js https://raw.githubusercontent.com/bia-pain-bache/BPB-Worker-Panel/refs/heads/main/build/unobfuscated-worker.js
 
-      - name: Commit changes if modified
+      - name: Minify the script
+        run: |
+          terser origin.js -o minified.js --compress --mangle
+
+      - name: Obfuscate BPB worker js
+        run: |
+          javascript-obfuscator minified.js --output _worker.js \
+          --compact true \
+          --control-flow-flattening true \
+          --control-flow-flattening-threshold 0.5 \
+          --dead-code-injection false \
+          --identifier-names-generator hexadecimal \
+          --rename-globals true \
+          --string-array true \
+          --string-array-encoding 'base64' \
+          --string-array-threshold 0.75 \
+          --transform-object-keys true \
+          --unicode-escape-sequence false
+
+      - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           branch: main
-          commit_message: "chore: update obfuscated BPB worker.js"
-          commit_author: "github-actions[bot] <github-actions[bot]@users.noreply.github.com>"
-          file_pattern: "_worker.js"
+          commit_message: ':arrow_up: update latest bpb panel'
+          commit_author: 'github-actions[bot] <github-actions[bot]@users.noreply.github.com>'
+          push_options: '--set-upstream'
