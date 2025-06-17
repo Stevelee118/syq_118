@@ -5,7 +5,6 @@ on:
     branches:
       - main
   schedule:
-    # Runs everyday at 1:00 AM UTC
     - cron: "0 1 * * *"
 
 permissions:
@@ -13,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
 
     steps:
       - name: Check out the code
@@ -22,23 +21,26 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "latest"
+          node-version: "20"
 
       - name: Install dependencies
         run: |
-          npm install -g javascript-obfuscator terser
+          npm install javascript-obfuscator terser
 
       - name: Clone BPB workjs
         run: |
-          wget -O origin.js https://raw.githubusercontent.com/bia-pain-bache/BPB-Worker-Panel/refs/heads/main/build/unobfuscated-worker.js
+          curl -o origin.js https://raw.githubusercontent.com/bia-pain-bache/BPB-Worker-Panel/refs/heads/main/build/unobfuscated-worker.js
+          if [ ! -f origin.js ]; then echo "Failed to download origin.js"; exit 1; fi
 
       - name: Minify the script
         run: |
-          terser origin.js -o minified.js --compress --mangle
+          if [ ! -f origin.js ]; then echo "origin.js not found"; exit 1; fi
+          npx terser origin.js -o minified.js --compress --mangle
 
       - name: Obfuscate BPB worker js
         run: |
-          javascript-obfuscator minified.js --output _worker.js \
+          if [ ! -f minified.js ]; then echo "minified.js not found"; exit 1; fi
+          npx javascript-obfuscator minified.js --output _worker.js \
           --compact true \
           --control-flow-flattening true \
           --control-flow-flattening-threshold 0.5 \
@@ -58,3 +60,4 @@ jobs:
           commit_message: ':arrow_up: update latest bpb panel'
           commit_author: 'github-actions[bot] <github-actions[bot]@users.noreply.github.com>'
           push_options: '--set-upstream'
+          skip_ci: false
