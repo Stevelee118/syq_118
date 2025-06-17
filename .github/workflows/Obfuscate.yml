@@ -12,7 +12,7 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-latest
 
     steps:
       - name: Check out the code
@@ -21,37 +21,28 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
+          node-version: "latest"
 
       - name: Install dependencies
         run: |
-          npm install javascript-obfuscator terser
+          npm install -g javascript-obfuscator
 
       - name: Clone BPB workjs
         run: |
-          curl -o origin.js https://raw.githubusercontent.com/bia-pain-bache/BPB-Worker-Panel/refs/heads/main/build/unobfuscated-worker.js
-          if [ ! -f origin.js ]; then echo "Failed to download origin.js"; exit 1; fi
-
-      - name: Minify the script
-        run: |
-          if [ ! -f origin.js ]; then echo "origin.js not found"; exit 1; fi
-          npx terser origin.js -o minified.js --compress --mangle
+          wget -O origin.js https://github.com/bia-pain-bache/BPB-Worker-Panel/releases/download/v3.2.5/worker.js
 
       - name: Obfuscate BPB worker js
         run: |
-          if [ ! -f minified.js ]; then echo "minified.js not found"; exit 1; fi
-          npx javascript-obfuscator minified.js --output _worker.js \
+          javascript-obfuscator origin.js --output _worker.js \
           --compact true \
-          --control-flow-flattening true \
-          --control-flow-flattening-threshold 0.5 \
-          --dead-code-injection false \
           --identifier-names-generator hexadecimal \
           --rename-globals true \
           --string-array true \
           --string-array-encoding 'base64' \
           --string-array-threshold 0.75 \
           --transform-object-keys true \
-          --unicode-escape-sequence false
+          --self-defending false \
+          --simplify true
 
       - name: Commit changes
         uses: stefanzweifel/git-auto-commit-action@v5
@@ -60,4 +51,3 @@ jobs:
           commit_message: ':arrow_up: update latest bpb panel'
           commit_author: 'github-actions[bot] <github-actions[bot]@users.noreply.github.com>'
           push_options: '--set-upstream'
-          skip_ci: false
